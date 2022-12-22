@@ -1,0 +1,18 @@
+[
+    {
+        "ParameterKey": "repoName",
+        "ParameterValue": "cf-golang-s3-upload-repo"
+    },
+    {
+        "ParameterKey": "applicationName",
+        "ParameterValue": "cf-golang-s3-upload"
+    },
+    {
+        "ParameterKey": "ecrURI",
+        "ParameterValue": "257364854921.dkr.ecr.us-east-1.amazonaws.com/cf-golang-s3-upload-repo:latest"
+    },
+    {
+        "ParameterKey": "bucketName",
+        "ParameterValue": "cf-hd-s3-upload"
+    }
+ ]

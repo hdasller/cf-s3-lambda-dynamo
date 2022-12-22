@@ -1,0 +1,127 @@
+
+AWSTemplateFormatVersion: 2010-09-09
+Transform: 'AWS::Serverless-2016-10-31'
+
+Description: Deploy stack upload service
+Parameters:
+  repoName: 
+    Description: Repository Name
+    Type: String
+  applicationName: 
+    Description: CF Application Name
+    Type: String
+  ecrURI: 
+    Description: CF ECR URI
+    Type: String
+  bucketName: 
+    Description: S3 Bucket Name
+    Type: String
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: "cf-lambda-dynamo-role"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: "Allow"
+          Principal:
+            Service:
+            - "lambda.amazonaws.com"
+          Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/AWSLambdaExecute"
+      - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+      - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+      - "arn:aws:iam::aws:policy/AmazonKinesisFullAccess"
+      - "arn:aws:iam::aws:policy/AWSLambdaInvocation-DynamoDB"
+      - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
+      Path: "/"
+
+  EcrRepo:
+    Type: AWS::ECR::Repository
+    Properties: 
+      RepositoryName: !Sub ${repoName}-repo
+      ImageScanningConfiguration: 
+        ScanOnPush: true
+
+  UploadBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      AccessControl: LogDeliveryWrite
+  MainBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref bucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LoggingConfiguration:
+        DestinationBucketName: !Ref UploadBucket
+        
+  Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !GetAtt LambdaExecutionRole.Arn
+      FunctionName: !Sub ${applicationName}
+      ImageUri: !Sub ${ecrURI}
+      PackageType: Image
+      FunctionUrlConfig:
+        AuthType: NONE
+      Events:
+        HttpApiEvent:
+          Type: HttpApi
+          Properties:
+            Path: /upload
+            Method: POST
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17' 
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:AbortMultipartUpload
+                - s3:ListBucket
+                - s3:ListBucketMultipartUpload
+                - s3:PutObject
+                - s3:GetObject
+                - s3:GetObjectACL
+                - dynamodb:BatchGet*
+                - dynamodb:DescribeStream
+                - dynamodb:DescribeTable
+                - dynamodb:Get*
+                - dynamodb:Query
+                - dynamodb:Scan
+                - dynamodb:PutItem
+              Resource: !Sub 'arn:aws:s3:::${bucketName}/*'
+  UploadTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: upload-registers
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        -
+          AttributeName: "uuid"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "uuid"
+          KeyType: "HASH"
+Outputs:
+  LambdaRoleARN:
+      Description: Role for Lambda execution.
+      Value:
+        Fn::GetAtt:
+          - LambdaExecutionRole
+          - Arn
+      Export:
+        Name:
+          Fn::Sub: "cf-lambda-dynamo-role"
+  MainBucketName:
+    Description: Name of the main bucket
+    Value: !Ref MainBucket
+  LogBucketName:
+    Description: Name of the access log bucket
+    Value: !Ref UploadBucket
