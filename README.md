@@ -21,8 +21,4 @@ Para realizar o deploy na aws utilizando o cloudformation, deve executar o segui
 - Adicionar secrets
 
 
-## Video do funcionamento
-https://www.loom.com/share/a0c3304617b64936b25c351a766d7723
-
-
 
